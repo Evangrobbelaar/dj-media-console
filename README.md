@@ -31,7 +31,29 @@ all-intra H.264 (short GOPs) is what makes seeking/triggering instant — that
 conversion script is part of the Phase 5 packaging work, not needed yet for
 testing on your laptop.
 
-## Running it
+## Setting up on a new computer
+
+Open PowerShell on the new computer and paste in the contents of
+[`install.ps1`](install.ps1), then press Enter. It will:
+
+1. Check for Git and Node.js (and tell you where to get them if either is missing)
+2. Clone this repo to `%USERPROFILE%\dj-media-console` (private repo — a
+   browser window may pop up asking you to sign in to GitHub the first time)
+3. Run `npm install`, which downloads Electron (~150–250MB, needs internet)
+4. Create a **"DJ Media Console" shortcut on the Desktop**
+
+After that, double-click the Desktop shortcut to launch it — no terminal,
+no `npm start`. It launches `electron.exe` directly, so there's no console
+window either.
+
+Re-running the script later (e.g. to pick up changes) is safe — it pulls
+the latest code instead of re-cloning.
+
+Video clips are never part of the repo or the script. On the new computer,
+open the app and assign clips to keys from wherever the videos already live
+on that machine (Downloads, an external drive, wherever).
+
+## Running it (dev / this machine)
 
 ```
 npm install
@@ -39,7 +61,9 @@ npm start
 ```
 
 A "DJ Media Console" window opens. This is the mapping window — it stays on
-your laptop screen, never goes on the projector.
+your laptop screen, never goes on the projector. There's also a Desktop
+shortcut already set up on this machine that does the same thing without
+a terminal.
 
 ## Using it
 
