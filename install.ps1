@@ -1,8 +1,10 @@
 # DJ Media Console - one-time setup for a new Windows computer.
 #
-# Paste this whole script into a PowerShell window on the new computer and
-# press Enter. It will:
-#   1. Check for Git and Node.js (and tell you where to get them if missing)
+# Open PowerShell (NOT Command Prompt - "irm"/winget etc. only exist in
+# PowerShell), paste this whole script in, and press Enter. It will:
+#   1. Install Git and Node.js via winget if they're not already present
+#      (winget ships built into Windows 10/11 - a UAC prompt may appear,
+#      click Yes)
 #   2. Clone (or update) the app from GitHub
 #   3. Install dependencies (this downloads Electron - needs internet)
 #   4. Create a "DJ Media Console" shortcut on the Desktop
@@ -22,21 +24,49 @@ function Write-Ok   { param($msg) Write-Host "    OK: $msg" -ForegroundColor Gre
 function Write-Fail { param($msg) Write-Host "    FAILED: $msg" -ForegroundColor Red }
 function Test-CommandExists { param($name) [bool](Get-Command $name -ErrorAction SilentlyContinue) }
 
+function Sync-PathFromRegistry {
+    $machinePath = [System.Environment]::GetEnvironmentVariable('Path', 'Machine')
+    $userPath    = [System.Environment]::GetEnvironmentVariable('Path', 'User')
+    $env:Path = "$machinePath;$userPath"
+}
+
+function Ensure-Tool {
+    param($CommandName, $WingetId, $FriendlyName, $ManualUrl)
+
+    if (Test-CommandExists $CommandName) {
+        Write-Ok (& $CommandName --version)
+        return $true
+    }
+
+    Write-Host "    $FriendlyName not found." -ForegroundColor Yellow
+
+    if (Test-CommandExists winget) {
+        Write-Host "    Installing $FriendlyName via winget - a Windows security prompt may appear, click Yes..." -ForegroundColor Yellow
+        winget install --id $WingetId -e --source winget --accept-package-agreements --accept-source-agreements
+        Sync-PathFromRegistry
+    } else {
+        Write-Host "    winget is not available on this computer either." -ForegroundColor Yellow
+    }
+
+    if (Test-CommandExists $CommandName) {
+        Write-Ok "$FriendlyName installed: $(& $CommandName --version)"
+        return $true
+    }
+
+    Write-Fail "$FriendlyName still not available."
+    Write-Host "    Install it manually from $ManualUrl, then close this window, open a NEW PowerShell window, and run this script again." -ForegroundColor Yellow
+    return $false
+}
+
 Write-Step "Checking for Git"
-if (-not (Test-CommandExists git)) {
-    Write-Fail "Git is not installed."
-    Write-Host "    Install it from https://git-scm.com/download/win, then run this script again." -ForegroundColor Yellow
+if (-not (Ensure-Tool -CommandName 'git' -WingetId 'Git.Git' -FriendlyName 'Git' -ManualUrl 'https://git-scm.com/download/win')) {
     exit 1
 }
-Write-Ok (git --version)
 
 Write-Step "Checking for Node.js"
-if (-not (Test-CommandExists node)) {
-    Write-Fail "Node.js is not installed."
-    Write-Host "    Install the LTS version from https://nodejs.org, then run this script again." -ForegroundColor Yellow
+if (-not (Ensure-Tool -CommandName 'node' -WingetId 'OpenJS.NodeJS.LTS' -FriendlyName 'Node.js' -ManualUrl 'https://nodejs.org')) {
     exit 1
 }
-Write-Ok (node --version)
 
 Write-Step "Getting the app"
 if (Test-Path (Join-Path $InstallDir '.git')) {
@@ -50,6 +80,10 @@ if (Test-Path (Join-Path $InstallDir '.git')) {
         exit 1
     }
 } else {
+    if ((Test-Path $InstallDir) -and -not (Test-Path (Join-Path $InstallDir '.git'))) {
+        Write-Host "    $InstallDir exists but isn't a git repo (probably a failed earlier attempt) - removing it first."
+        Remove-Item -Recurse -Force $InstallDir
+    }
     Write-Host "    This is a private repo - a browser window may open asking you to sign in to GitHub." -ForegroundColor Yellow
     git clone $RepoUrl $InstallDir
     if ($LASTEXITCODE -ne 0) {
