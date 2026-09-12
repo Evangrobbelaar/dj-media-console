@@ -1,0 +1,40 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>DJ Media Console</title>
+  <link rel="stylesheet" href="mapping.css" />
+</head>
+<body>
+  <header class="topbar">
+    <h1>DJ Media Console</h1>
+
+    <div class="control">
+      <label for="crossfade">Crossfade</label>
+      <input type="range" id="crossfade" min="0" max="2000" step="20" />
+      <span id="crossfade-value">400ms</span>
+    </div>
+
+    <div class="control">
+      <label for="display-select">Output display</label>
+      <select id="display-select"></select>
+    </div>
+
+    <button id="launch-btn" class="primary">Launch Output ▶</button>
+    <button id="exit-fullscreen-btn">Exit Fullscreen</button>
+    <button id="blackout-btn">Blackout (Space)</button>
+
+    <span id="status" class="status"></span>
+  </header>
+
+  <main>
+    <p class="hint">
+      Click a key to assign a clip. With this window focused, press a mapped
+      key to trigger it on the output display. Space = blackout.
+    </p>
+    <div id="grid"></div>
+  </main>
+
+  <script src="mapping.js"></script>
+</body>
+</html>

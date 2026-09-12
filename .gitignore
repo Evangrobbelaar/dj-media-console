@@ -1,0 +1,8 @@
+node_modules/
+dist/
+*.log
+
+# Real footage and per-machine mappings never go in git.
+media/*
+!media/.gitkeep
+config/config.json

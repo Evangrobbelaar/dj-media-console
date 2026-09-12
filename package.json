@@ -1,0 +1,16 @@
+{
+  "name": "dj-media-console",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Keyboard-triggered VJ console. Videos are mapped to keys; pressing a key crossfades an A/B deck pair to the new clip.",
+  "main": "main.js",
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "scripts": {
+    "start": "electron ."
+  },
+  "devDependencies": {
+    "electron": "44.3.0"
+  }
+}
