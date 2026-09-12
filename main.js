@@ -1,4 +1,5 @@
 const path = require('path');
+const { pathToFileURL } = require('url');
 const { app, BrowserWindow, ipcMain, dialog, screen } = require('electron');
 const { loadConfig, saveConfig } = require('./src/shared/config-store');
 const { ROWS, ALL_CODES, RESERVED_CODES } = require('./src/shared/keys');
@@ -140,8 +141,20 @@ function notifyOutput(channel, payload) {
   }
 }
 
+// file:// URLs must be built here, not in the renderer: Electron's
+// renderer/preload context shims "url"/"node:url" with a legacy
+// browser-compat polyfill that lacks pathToFileURL, so the conversion has to
+// happen in the main process and travel with the mapping data.
+function withFileUrls(cfg) {
+  const mappings = {};
+  for (const [code, mapping] of Object.entries(cfg.mappings)) {
+    mappings[code] = { ...mapping, fileUrl: pathToFileURL(mapping.file).href };
+  }
+  return { ...cfg, mappings };
+}
+
 function registerIpcHandlers() {
-  ipcMain.handle('config:get', () => config);
+  ipcMain.handle('config:get', () => withFileUrls(config));
 
   ipcMain.handle('keys:layout', () => ({ rows: ROWS, codes: ALL_CODES, reserved: RESERVED_CODES }));
 
@@ -149,21 +162,21 @@ function registerIpcHandlers() {
     if (!ALL_CODES.includes(code)) throw new Error(`not a mappable key: ${code}`);
     config.mappings[code] = { file, loop: true };
     saveConfig(config);
-    notifyOutput('config:sync', config);
+    notifyOutput('config:sync', withFileUrls(config));
     return config;
   });
 
   ipcMain.handle('config:remove-mapping', (_evt, { code }) => {
     delete config.mappings[code];
     saveConfig(config);
-    notifyOutput('config:sync', config);
+    notifyOutput('config:sync', withFileUrls(config));
     return config;
   });
 
   ipcMain.handle('config:set-crossfade', (_evt, { ms }) => {
     config.crossfadeMs = Math.max(0, Math.min(2000, Number(ms) || 0));
     saveConfig(config);
-    notifyOutput('config:sync', config);
+    notifyOutput('config:sync', withFileUrls(config));
     return config;
   });
 
@@ -207,7 +220,12 @@ function registerIpcHandlers() {
   ipcMain.on('key:trigger', (_evt, { code }) => {
     const mapping = config.mappings[code];
     if (!mapping) return;
-    notifyOutput('play-clip', { code, ...mapping, crossfadeMs: config.crossfadeMs });
+    notifyOutput('play-clip', {
+      code,
+      ...mapping,
+      fileUrl: pathToFileURL(mapping.file).href,
+      crossfadeMs: config.crossfadeMs,
+    });
     notifyMapping('key:feedback', { code });
   });
 

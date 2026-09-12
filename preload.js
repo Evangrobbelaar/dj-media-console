@@ -1,8 +1,6 @@
 const { contextBridge, ipcRenderer } = require('electron');
-const { pathToFileURL } = require('url');
 
 contextBridge.exposeInMainWorld('api', {
-  toFileUrl: (filePath) => pathToFileURL(filePath).href,
   getConfig: () => ipcRenderer.invoke('config:get'),
   getKeyLayout: () => ipcRenderer.invoke('keys:layout'),
   setMapping: (code, file) => ipcRenderer.invoke('config:set-mapping', { code, file }),

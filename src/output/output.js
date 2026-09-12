@@ -39,7 +39,7 @@ function describeMediaError(videoEl, file) {
   return `${file} -> ${name}${err.message ? ` (${err.message})` : ''}`;
 }
 
-function validateClip(file) {
+function validateClip(file, fileUrl) {
   return new Promise((resolve) => {
     const probe = document.createElement('video');
     probe.muted = true;
@@ -64,7 +64,7 @@ function validateClip(file) {
     }, { once: true });
 
     try {
-      probe.src = window.api.toFileUrl(file);
+      probe.src = fileUrl;
     } catch (err) {
       cleanup();
       resolve({ ok: false, reason: `${file} -> ${err.message}` });
@@ -73,8 +73,12 @@ function validateClip(file) {
 }
 
 async function validateAllClips() {
-  const files = [...new Set(Object.values(config.mappings).map((m) => m.file))];
-  if (files.length === 0) {
+  const uniqueByFile = new Map();
+  for (const mapping of Object.values(config.mappings)) {
+    if (!uniqueByFile.has(mapping.file)) uniqueByFile.set(mapping.file, mapping.fileUrl);
+  }
+  const entries = [...uniqueByFile.entries()];
+  if (entries.length === 0) {
     loadingTextEl.textContent = 'No clips mapped yet';
     loadingBarFillEl.style.width = '100%';
     return;
@@ -82,16 +86,16 @@ async function validateAllClips() {
 
   const failures = [];
   let done = 0;
-  for (const file of files) {
-    loadingTextEl.textContent = `Validating clips… ${done + 1}/${files.length}`;
-    const result = await validateClip(file);
+  for (const [file, fileUrl] of entries) {
+    loadingTextEl.textContent = `Validating clips… ${done + 1}/${entries.length}`;
+    const result = await validateClip(file, fileUrl);
     if (!result.ok) {
       badFiles.add(file);
       failures.push(result.reason);
       console.error('[output] clip failed, will be skipped:', result.reason);
     }
     done += 1;
-    loadingBarFillEl.style.width = `${Math.round((done / files.length) * 100)}%`;
+    loadingBarFillEl.style.width = `${Math.round((done / entries.length) * 100)}%`;
   }
 
   if (failures.length > 0) {
@@ -99,14 +103,14 @@ async function validateAllClips() {
     // but this is enough to diagnose most cases (bad codec vs bad path)
     // without needing devtools open.
     loadingTextEl.innerHTML =
-      `${failures.length} of ${files.length} clip(s) failed:<br>` +
+      `${failures.length} of ${entries.length} clip(s) failed:<br>` +
       failures.map((f) => `<span style="font-size:12px">${f}</span>`).join('<br>') +
       '<br>Continuing with the rest.';
     await new Promise((r) => setTimeout(r, 6000));
   }
 }
 
-function playClip({ file, loop, crossfadeMs }) {
+function playClip({ file, fileUrl, loop, crossfadeMs }) {
   if (!file) return;
   if (badFiles.has(file)) {
     log('skipping known-bad file:', file);
@@ -159,7 +163,7 @@ function playClip({ file, loop, crossfadeMs }) {
   idleEl.addEventListener('error', onError, { once: true });
   idleEl.loop = !!loop;
   idleEl.dataset.file = file;
-  idleEl.src = window.api.toFileUrl(file);
+  idleEl.src = fileUrl;
 }
 
 let blackoutOn = false;
