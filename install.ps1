@@ -109,12 +109,28 @@ if ($npmExit -ne 0) {
     Write-Fail "npm install failed (exit code $npmExit) - see the error above."
     exit 1
 }
-Write-Ok "Dependencies installed"
+Write-Ok "npm install finished"
 
 Write-Step "Verifying the Electron binary"
+# npm install can report success while Electron's own postinstall download
+# silently fails to fetch electron.exe (flaky networks, GitHub throttling).
+# That happened during development of this script - retry the download
+# directly rather than trusting npm's exit code alone.
 $ElectronExe = Join-Path $InstallDir 'node_modules\electron\dist\electron.exe'
+$ElectronInstallScript = Join-Path $InstallDir 'node_modules\electron\install.js'
+
+$attempts = 0
+while (-not (Test-Path $ElectronExe) -and $attempts -lt 3) {
+    $attempts++
+    Write-Host "    electron.exe missing (attempt $attempts/3) - retrying the Electron binary download directly..." -ForegroundColor Yellow
+    Push-Location $InstallDir
+    node $ElectronInstallScript
+    Pop-Location
+}
+
 if (-not (Test-Path $ElectronExe)) {
-    Write-Fail "electron.exe not found at $ElectronExe"
+    Write-Fail "electron.exe still not found at $ElectronExe after $attempts retries."
+    Write-Host "    This usually means something on this network is blocking downloads from github.com (firewall/proxy). Check that, then run this script again." -ForegroundColor Yellow
     exit 1
 }
 Write-Ok "Found $ElectronExe"
