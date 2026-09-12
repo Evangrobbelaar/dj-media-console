@@ -52,9 +52,12 @@ html, body {
 }
 
 .loading-inner {
-  width: 40%;
+  width: 70%;
+  max-width: 900px;
   min-width: 280px;
   text-align: center;
+  word-break: break-all;
+  line-height: 1.6;
 }
 
 .bar {

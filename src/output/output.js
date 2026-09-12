@@ -24,6 +24,21 @@ function setTransitionDuration(ms) {
 
 // Probe every mapped file up front: catches missing/corrupt clips before the
 // set starts instead of on first trigger, and warms the OS file cache.
+// MediaError.code values, per the HTML spec, for readable diagnostics.
+const MEDIA_ERROR_NAMES = {
+  1: 'MEDIA_ERR_ABORTED',
+  2: 'MEDIA_ERR_NETWORK',
+  3: 'MEDIA_ERR_DECODE (usually an unsupported codec, e.g. HEVC/H.265)',
+  4: 'MEDIA_ERR_SRC_NOT_SUPPORTED (bad path, or a container/codec Chromium cannot open at all)',
+};
+
+function describeMediaError(videoEl, file) {
+  const err = videoEl.error;
+  if (!err) return `unknown error loading ${file}`;
+  const name = MEDIA_ERROR_NAMES[err.code] || `code ${err.code}`;
+  return `${file} -> ${name}${err.message ? ` (${err.message})` : ''}`;
+}
+
 function validateClip(file) {
   return new Promise((resolve) => {
     const probe = document.createElement('video');
@@ -32,8 +47,7 @@ function validateClip(file) {
 
     const timer = setTimeout(() => {
       cleanup();
-      log('warn: timed out probing (treating as bad):', file);
-      resolve(false);
+      resolve({ ok: false, reason: `${file} -> timed out probing (5s)` });
     }, 5000);
 
     function cleanup() {
@@ -42,14 +56,18 @@ function validateClip(file) {
       probe.load();
     }
 
-    probe.addEventListener('loadedmetadata', () => { cleanup(); resolve(true); }, { once: true });
-    probe.addEventListener('error', () => { cleanup(); resolve(false); }, { once: true });
+    probe.addEventListener('loadedmetadata', () => { cleanup(); resolve({ ok: true }); }, { once: true });
+    probe.addEventListener('error', () => {
+      const reason = describeMediaError(probe, file);
+      cleanup();
+      resolve({ ok: false, reason });
+    }, { once: true });
 
     try {
       probe.src = window.api.toFileUrl(file);
     } catch (err) {
       cleanup();
-      resolve(false);
+      resolve({ ok: false, reason: `${file} -> ${err.message}` });
     }
   });
 }
@@ -62,21 +80,29 @@ async function validateAllClips() {
     return;
   }
 
+  const failures = [];
   let done = 0;
   for (const file of files) {
     loadingTextEl.textContent = `Validating clips… ${done + 1}/${files.length}`;
-    const ok = await validateClip(file);
-    if (!ok) {
+    const result = await validateClip(file);
+    if (!result.ok) {
       badFiles.add(file);
-      console.error('[output] clip missing or corrupt, will be skipped:', file);
+      failures.push(result.reason);
+      console.error('[output] clip failed, will be skipped:', result.reason);
     }
     done += 1;
     loadingBarFillEl.style.width = `${Math.round((done / files.length) * 100)}%`;
   }
 
-  if (badFiles.size > 0) {
-    loadingTextEl.textContent = `${badFiles.size} of ${files.length} clip(s) failed — check console. Continuing.`;
-    await new Promise((r) => setTimeout(r, 2000));
+  if (failures.length > 0) {
+    // Show the actual reason on screen - press F12 for the full console too,
+    // but this is enough to diagnose most cases (bad codec vs bad path)
+    // without needing devtools open.
+    loadingTextEl.innerHTML =
+      `${failures.length} of ${files.length} clip(s) failed:<br>` +
+      failures.map((f) => `<span style="font-size:12px">${f}</span>`).join('<br>') +
+      '<br>Continuing with the rest.';
+    await new Promise((r) => setTimeout(r, 6000));
   }
 }
 
