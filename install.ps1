@@ -13,6 +13,10 @@
 # and assign clips to keys from wherever your videos live on this computer.
 
 $ErrorActionPreference = 'Stop'
+# Process-scoped only: doesn't touch system policy, doesn't need admin, and
+# means any .ps1 shim invoked below (e.g. npm.ps1) isn't blocked by the
+# machine's default "Restricted" policy.
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force
 
 $RepoUrl      = 'https://github.com/Evangrobbelaar/dj-media-console.git'
 $InstallDir   = Join-Path $env:USERPROFILE 'dj-media-console'
@@ -95,11 +99,14 @@ Write-Ok "App present at $InstallDir"
 
 Write-Step "Installing dependencies (downloads Electron, roughly 150-250MB)"
 Push-Location $InstallDir
-npm install
+# Call npm.cmd explicitly, not "npm" - PowerShell resolves bare "npm" to
+# npm.ps1, which is a script and subject to execution policy even after the
+# Bypass above touches something unexpected. The .cmd shim is not.
+& npm.cmd install
 $npmExit = $LASTEXITCODE
 Pop-Location
 if ($npmExit -ne 0) {
-    Write-Fail "npm install failed - see the error above."
+    Write-Fail "npm install failed (exit code $npmExit) - see the error above."
     exit 1
 }
 Write-Ok "Dependencies installed"
