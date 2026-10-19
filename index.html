@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Erf Mapper</title>
+<meta name="description" content="Take a photo, record each wall's measurement, save. Export everything for Claude.">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Erf Mapper">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#1d2427">
+<style>
+:root{
+  --bg:#e9ece9; --surface:#ffffff; --surface-2:#f4f6f4; --ink:#1d2427; --muted:#5b6669; --line:#cfd5d2;
+  --tape:#e0a91c; --tape-ink:#1d2427; --accent-ink:#8a6200; --danger:#b3261e; --ok:#2e7d4f;
+  --font-display:"Barlow Condensed","Roboto Condensed","Arial Narrow","Helvetica Neue",system-ui,sans-serif;
+  --font-body:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --font-mono:ui-monospace,"SF Mono",Menlo,"Roboto Mono",Consolas,monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){:root{
+  --bg:#111517; --surface:#1a2023; --surface-2:#222a2d; --ink:#e6ebe9; --muted:#9aa6a8; --line:#323c40;
+  --tape:#e9b42a; --tape-ink:#151a1c; --accent-ink:#f0c457; --danger:#ef7a70; --ok:#6cc495; color-scheme:dark}}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{min-height:100%;margin:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--font-body);font-size:16px;line-height:1.45;
+  padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));-webkit-tap-highlight-color:transparent}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+img{max-width:100%}
+:focus-visible{outline:2px solid var(--tape);outline-offset:2px}
+.app{max-width:640px;margin:0 auto;display:flex;flex-direction:column;gap:14px;padding-block:14px 40px}
+.top{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+h1{font-family:var(--font-display);font-weight:700;font-size:28px;letter-spacing:.02em;margin:0;text-transform:uppercase;display:flex;align-items:center;gap:8px}
+.tape{display:inline-block;width:26px;height:12px;background:repeating-linear-gradient(90deg,var(--tape) 0 6px,var(--tape-ink) 6px 7px);border-radius:2px}
+.status{font-size:12px;color:var(--muted)}
+.big{height:72px;border-radius:14px;border:0;background:var(--tape);color:var(--tape-ink);font-family:var(--font-display);font-size:clamp(20px,6vw,26px);white-space:nowrap;font-weight:700;letter-spacing:.04em;text-transform:uppercase;display:flex;align-items:center;justify-content:center;gap:12px;box-shadow:0 2px 0 rgba(0,0,0,.15)}
+.big svg{width:30px;height:30px;flex:none}
+.btn{height:46px;padding:0 16px;border-radius:10px;border:1px solid var(--line);background:var(--surface);font-weight:600;display:inline-flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap}
+.btn.primary{background:var(--tape);border-color:var(--tape);color:var(--tape-ink)}
+.btn.danger{color:var(--danger);border-color:var(--danger);background:transparent}
+.btn:disabled{opacity:.5;cursor:default}
+.row{display:flex;gap:8px;flex-wrap:wrap} .row .btn{flex:1 1 auto}
+.banner{background:var(--surface);border:1px solid var(--tape);border-radius:10px;padding:10px 12px;font-size:14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.banner span{flex:1 1 200px}
+.label{font-size:12px;text-transform:uppercase;letter-spacing:.09em;font-weight:600;color:var(--muted)}
+.list{display:flex;flex-direction:column;gap:8px}
+.rec{display:grid;grid-template-columns:64px 1fr auto;gap:12px;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:8px;text-align:left;width:100%}
+.thumb{width:64px;height:64px;border-radius:8px;background:var(--surface-2);overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--muted)}
+.thumb img{width:100%;height:100%;object-fit:cover}
+.rec .t{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rec .s{font-family:var(--font-mono);font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
+.rec .d{font-size:12px;color:var(--muted);text-align:right;font-family:var(--font-mono)}
+.empty{background:var(--surface);border:1px dashed var(--line);border-radius:12px;padding:20px;color:var(--muted)}
+.empty b{display:block;color:var(--ink);font-family:var(--font-display);font-size:22px;text-transform:uppercase;letter-spacing:.03em;margin-bottom:4px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:10px}
+.card p{margin:0;color:var(--muted);font-size:14px}
+.progress{font-size:13px;color:var(--muted);white-space:pre-wrap;overflow-wrap:anywhere}
+.sheet{position:fixed;inset:0;z-index:20;background:var(--bg);overflow:auto;-webkit-overflow-scrolling:touch;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-top:env(safe-area-inset-top,0px);padding-bottom:calc(env(safe-area-inset-bottom,0px) + 24px)}
+.sheet-in{max-width:640px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
+.sheet-head{position:sticky;top:0;z-index:2;background:var(--bg);display:flex;align-items:center;gap:8px;padding-block:10px;border-bottom:1px solid var(--line)}
+.sheet-head h2{flex:1;margin:0;font-family:var(--font-display);font-size:22px;text-transform:uppercase;letter-spacing:.03em;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.photos{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px}
+.ph{position:relative}
+.ph img{width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:10px;background:var(--surface-2);display:block}
+.ph button{position:absolute;top:6px;right:6px;width:32px;height:32px;border-radius:50%;border:0;background:rgba(0,0,0,.6);color:#fff;font-size:18px;line-height:1}
+.shoot{aspect-ratio:4/3;border-radius:10px;border:2px dashed var(--line);background:var(--surface);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font-weight:600;color:var(--muted);width:100%}
+.shoot svg{width:30px;height:30px}
+input.txt,textarea.txt{width:100%;height:50px;border:1px solid var(--line);border-radius:10px;background:var(--surface);padding:0 12px;font-size:17px;color:var(--ink)}
+textarea.txt{height:auto;min-height:70px;padding:10px 12px;resize:vertical}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chips button{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:7px 14px;font-size:15px}
+.chips button[aria-pressed="true"]{background:var(--ink);color:var(--surface);border-color:var(--ink)}
+.walls{display:flex;flex-direction:column;gap:8px}
+.wall{display:grid;grid-template-columns:minmax(0,1fr) 120px 40px;gap:8px;align-items:center}
+.wall input{height:54px;border:1px solid var(--line);border-radius:10px;background:var(--surface);padding:0 12px;min-width:0;width:100%;color:var(--ink);font-size:16px}
+.wall .len{font-family:var(--font-mono);font-size:22px;text-align:right;font-variant-numeric:tabular-nums}
+.x{width:40px;height:40px;border-radius:10px;border:1px solid var(--line);background:transparent;color:var(--muted);font-size:20px}
+.total{font-family:var(--font-mono);color:var(--accent-ink);font-size:15px;text-align:right}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + 18px);background:var(--ink);color:var(--surface);padding:10px 16px;border-radius:10px;font-size:15px;z-index:40;max-width:calc(100% - 32px)}
+.viewer{position:fixed;inset:0;z-index:30;background:rgba(0,0,0,.92);display:flex;align-items:center;justify-content:center;padding:16px}
+.viewer img{max-height:100%;object-fit:contain}
+.foot{font-size:12px;color:var(--muted);text-align:center}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="top">
+    <h1><span class="tape" aria-hidden="true"></span>Erf Mapper</h1>
+    <span class="status" id="statusText">Saved on this phone</span>
+  </div>
+  <div id="installBanner" class="banner" hidden>
+    <span id="installText">Install Erf Mapper on your home screen so it opens like an app and works without signal.</span>
+    <button class="btn primary" id="installBtn" hidden>Install</button>
+  </div>
+  <button class="big" id="newBtn">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>
+    New measurement
+  </button>
+  <div class="label" id="listLabel">Saved</div>
+  <div class="list" id="list"></div>
+  <div class="card">
+    <div class="label">Export for Claude</div>
+    <p>One ZIP with every photo, a data file and a summary. Upload it to a Claude chat and ask for analysis. Export regularly as a backup: measurements live only on this phone.</p>
+    <div class="row">
+      <button class="btn primary" id="zipBtn">Export ZIP</button>
+      <button class="btn" id="copyBtn">Copy summary</button>
+    </div>
+    <div class="progress" id="progress"></div>
+  </div>
+  <div class="foot" id="foot">Erf Mapper · works offline</div>
+</div>
+
+<div id="sheet" class="sheet" hidden></div>
+<div id="viewer" class="viewer" hidden><img id="viewerImg" alt=""></div>
+<div id="toast" class="toast" hidden></div>
+<input type="file" id="camIn" accept="image/*" capture="environment" hidden>
+<input type="file" id="galIn" accept="image/*" multiple hidden>
+
+<script src="jszip.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
